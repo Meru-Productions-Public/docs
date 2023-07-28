@@ -1,4 +1,9 @@
-# Mintlify Starter Kit
+# What Is This
+We are trialing Mintlify while we create developer documentation for our saas and on-premise solutions (especially the latter). This is not the final version of our documentation and may not be what you see.
+
+This is open source so that others can see the internals of our documentation.
+
+## Mintlify Starter Kit Guide
 
 Click on `Use this template` to copy the Mintlify starter kit. The starter kit contains examples including
 
