@@ -1,0 +1,1390 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Meru Runtime",
+        "description": "A non-naive Meru runtime that uses our prioprietary retrieval and generation technology to questions about user-provided corpuses of text. Automated reading comprehension.",
+        "version": "2.0"
+    },
+    "paths": {
+        "/index": {
+            "get": {
+                "summary": "Get Indices",
+                "description": "Get a list of succesfully indexed (usable) indices' Ids. You can use such an Id to perform a query on that index.",
+                "operationId": "get_indices_index_get",
+                "responses": {
+                    "200": {
+                        "description": "The currently usable indices.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ListIndices"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/index-make": {
+            "post": {
+                "summary": "Make Index",
+                "description": "Non-blocking (fast). Few arguments. Index a corpus of text, passed in as a zip-file of a file-tree of supported file-types. This will immediately return with an index Id that can be used to keep track of pre-processing (indexing) status. Once the indexing is successful, but not before, you can query it.",
+                "operationId": "make_index_index_make_post",
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Body_make_index_index_make_post"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "An index Id that you can use to track status and later make queries.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MakeIndexResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/index-status": {
+            "post": {
+                "summary": "Get Index Status",
+                "description": "Blocking (fast). Few arguments. Find out the status of an index (i.e. whether it is ready to be queried from or is still pre-processing). The index is specified via its Id, which you recieve when you make a POST request to /index-make.",
+                "operationId": "get_index_status_index_status_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/IndexStatusRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "The status or a failure if it does not exist.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IndexStatusResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/query": {
+            "post": {
+                "summary": "Query",
+                "description": "Blocking (medium). Arguments. Submit a query for question-answering on a specific corpus of text (called, also, an index after we process it using /index-make). Aside from the query, you should specify the index to fetch information from. If you do not specify and have pre-existing indices, the latest one to complete index pre-processing is chosen as a default. As a response, you recieve an answer as well as information pertaining to where in the text the supporting evidence was found and whether it may be incorrect (or other so-called attributes). A query-answer (completion) Id is returned for the purpose of facilitating feedback in an asynchronous fashion.",
+                "operationId": "query_query_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/QueryRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "An answer to your question with sufficient metadata to be verifiable by a human and feedback-able by a human using POST /feedback.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/QueryResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/feedback": {
+            "post": {
+                "summary": "Feedback",
+                "description": "Blocking (fast). Arguments. Provide some feedback given a target and feedback type. As of July 2023, we only support completions, which are called query answers, as targets. With respect to that target, you can leave feedback that can later be fetched with analytics to understand failure mode with query answers or other tasks.",
+                "operationId": "feedback_feedback_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FeedbackRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "No response. Assume success if no error.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "null",
+                                    "title": "Response Feedback Feedback Post"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/analytics": {
+            "get": {
+                "summary": "Analytics",
+                "description": "Blocking (fast). No arguments. Get the list of analytics features available to query. The key features are channels, filters and reducers. The channels are seperate log-like timeseries sequences of events and their metadata. For example, there is a channel for index jobs as well as one for query jobs. The purpose of this is specifically to enable you to POST /analytics to understand what has happened with/on your Meru runtime.",
+                "operationId": "analytics_analytics_get",
+                "responses": {
+                    "200": {
+                        "description": "A guide on the options available to fill in the arguments for POST /analytics.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AnalyticsGetResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Analytics",
+                "description": "Blocking (slow). Many arguments. Make an analytics request. You are able to define a sequence of filters for a timeseries of entries corresponding to fields you care about. You can also specific a set of reductions on those (or other) filtered entries. Filters are applied one after the other (so the intersection of what they let through individually is let through on net). The reducers allow you to collect averages, and other similar quantities. For information on the available reducers (etc) look at the GET /analytics, it is meant to help you know how to fill in these arguments. In the case of a failure, /analytics returns a best-effort response on a per-reducer and timeseries filter. If any single filter fails, it fails the entire sequence for that timeseries of reduction, but not others. Likewise for reducers. You provide arbitrary names for your reductions for easier identification of batch analytics.",
+                "operationId": "analytics_analytics_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AnalyticsRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "The analytics you requested, such that failures do not propagate across different reductions.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AnalyticsPostResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/config": {
+            "get": {
+                "summary": "Get Config",
+                "description": "Blocking (fast). No Arguments. Get a list of currently configured configurations. As of late July 2023, only the default index is available as a configuration. Because the default index is automatically set to the latest successful index job, it is not possible to set, and can only be gotten.",
+                "operationId": "get_config_config_get",
+                "responses": {
+                    "200": {
+                        "description": "The list of currently set configurations for your meru runtime.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConfigResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AnalyticsGetResponse": {
+                "properties": {
+                    "Channels": {
+                        "items": {
+                            "$ref": "#/components/schemas/ChannelInfo"
+                        },
+                        "type": "array",
+                        "title": "Channels",
+                        "description": "A list of what channels are available to query from and their metadata."
+                    },
+                    "Filters": {
+                        "items": {
+                            "$ref": "#/components/schemas/FilterInfo"
+                        },
+                        "type": "array",
+                        "title": "Filters",
+                        "description": "A list of what filters can be used to include or exclude entries from a channel, as well as how to use them."
+                    },
+                    "Reducers": {
+                        "items": {
+                            "$ref": "#/components/schemas/ReducerInfo"
+                        },
+                        "type": "array",
+                        "title": "Reducers",
+                        "description": "A list of reducers that can be used to reduce (or combine) the fields from a set of entries from a channel."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Channels",
+                    "Filters",
+                    "Reducers"
+                ],
+                "title": "AnalyticsGetResponse"
+            },
+            "AnalyticsPostResponse": {
+                "properties": {
+                    "Reductions": {
+                        "items": {
+                            "$ref": "#/components/schemas/ReductionResponse"
+                        },
+                        "type": "array",
+                        "title": "Reductions",
+                        "description": "A list of the reductions on the requested channel."
+                    },
+                    "Timeseries": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TimeseriesResponse"
+                            }
+                        ],
+                        "title": "Timeseries",
+                        "description": "A list (timeseries) of entries from that channel conforming to the requested filters."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Reductions"
+                ],
+                "title": "AnalyticsPostResponse"
+            },
+            "AnalyticsRequest": {
+                "properties": {
+                    "Channel": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ChannelType"
+                            }
+                        ],
+                        "description": "What channel to fetch entries from."
+                    },
+                    "Reductions": {
+                        "items": {
+                            "$ref": "#/components/schemas/ReductionRequest"
+                        },
+                        "type": "array",
+                        "title": "Reductions",
+                        "description": "A list of named reductions to apply on certain subsets of the channel's entries. Each reduction is defined by its set of filters (which define which entries will be included through predicate intersection) and its single reducer, which defines how the entries are combined into a single value.",
+                        "default": []
+                    },
+                    "Timeseries": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TimeseriesRequest"
+                            }
+                        ],
+                        "title": "Timeseries",
+                        "description": "Optionally, a request to fetch a set of channel entries as a timeseries. If null, then no timeseries is fetched. Supports filters."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Channel"
+                ],
+                "title": "AnalyticsRequest"
+            },
+            "AnalyticsState": {
+                "enum": [
+                    "Success",
+                    "Fail",
+                    "FailBadArgs",
+                    "FailBadKwargs",
+                    "FailDoesNotExist"
+                ],
+                "title": "AnalyticsState",
+                "description": "An enumeration."
+            },
+            "AnswerCorrectness": {
+                "enum": [
+                    "FullyCorrect",
+                    "AnswerOnlyCorrect",
+                    "ContextOnlyCorrect",
+                    "FullyIncorrect"
+                ],
+                "title": "AnswerCorrectness",
+                "description": "An enumeration."
+            },
+            "AnswerCorrectnessFeedback": {
+                "properties": {
+                    "Correctness": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AnswerCorrectness"
+                            }
+                        ],
+                        "description": "How correct an answer was for a given question, given some evidence the retrieval systemn found."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Correctness"
+                ],
+                "title": "AnswerCorrectnessFeedback"
+            },
+            "AttributeType": {
+                "enum": [
+                    "PotentialAttribute"
+                ],
+                "title": "AttributeType",
+                "description": "An enumeration."
+            },
+            "Body_make_index_index_make_post": {
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "format": "binary",
+                        "title": "File"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "file"
+                ],
+                "title": "Body_make_index_index_make_post"
+            },
+            "ChannelFieldInfo": {
+                "properties": {
+                    "Name": {
+                        "type": "string",
+                        "title": "Name",
+                        "description": "The name of this field in the entries in this channel."
+                    },
+                    "Description": {
+                        "type": "string",
+                        "title": "Description",
+                        "description": "A description of the fields in this channel."
+                    },
+                    "Type": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/EntryType"
+                            }
+                        ],
+                        "description": "The type of entries in this channel."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Name",
+                    "Description",
+                    "Type"
+                ],
+                "title": "ChannelFieldInfo"
+            },
+            "ChannelInfo": {
+                "properties": {
+                    "Name": {
+                        "type": "string",
+                        "title": "Name",
+                        "description": "The name of this channel: necessary to (log) fetch entries from it."
+                    },
+                    "Description": {
+                        "type": "string",
+                        "title": "Description",
+                        "description": "A description of what this channel is meant to log."
+                    },
+                    "Fields": {
+                        "items": {
+                            "$ref": "#/components/schemas/ChannelFieldInfo"
+                        },
+                        "type": "array",
+                        "title": "Fields",
+                        "description": "A list of what fields of information are available in the entries of this channel."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Name",
+                    "Description",
+                    "Fields"
+                ],
+                "title": "ChannelInfo"
+            },
+            "ChannelType": {
+                "enum": [
+                    "IndexJob",
+                    "QueryAnswer",
+                    "FeedbackCorrectness",
+                    "FeedbackComment"
+                ],
+                "title": "ChannelType",
+                "description": "An enumeration."
+            },
+            "CommentFeedback": {
+                "properties": {
+                    "Comment": {
+                        "type": "string",
+                        "title": "Comment",
+                        "description": "A comment about the behavior of the retrieval and/or question-answering system regarding this question-answer (completion)."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Comment"
+                ],
+                "title": "CommentFeedback"
+            },
+            "Config": {
+                "properties": {
+                    "ConfigType": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ConfigType"
+                            }
+                        ],
+                        "description": "The configuration type that the contents represent. As of July 2023, only default index configurations are supported."
+                    },
+                    "ConfigContents": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DefaultIndexConfigContents"
+                            }
+                        ],
+                        "title": "Configcontents",
+                        "description": "The contents of a configuration. Normally, these will be values you can set to modify your runtime's behavior. As of July 2023, however, only read-only access to the default index (which changes with each additional index request) is supported. The default index is useful for testing basic functionality with single-corpus (single-index) questions."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "ConfigType",
+                    "ConfigContents"
+                ],
+                "title": "Config"
+            },
+            "ConfigResponse": {
+                "properties": {
+                    "Configs": {
+                        "items": {
+                            "$ref": "#/components/schemas/Config"
+                        },
+                        "type": "array",
+                        "title": "Configs",
+                        "description": "A list of configurations that are defined and malleable in your Meru runtime."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Configs"
+                ],
+                "title": "ConfigResponse"
+            },
+            "ConfigType": {
+                "enum": [
+                    "DefaultIndex"
+                ],
+                "title": "ConfigType",
+                "description": "An enumeration."
+            },
+            "DefaultIndexConfigContents": {
+                "properties": {
+                    "IndexId": {
+                        "type": "string",
+                        "title": "Indexid",
+                        "description": "The Id of the default index to use to fetch evidence to answer questions with."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "IndexId"
+                ],
+                "title": "DefaultIndexConfigContents"
+            },
+            "EntryType": {
+                "enum": [
+                    "Datetime",
+                    "Int",
+                    "Float",
+                    "Bool",
+                    "String",
+                    "Enum"
+                ],
+                "title": "EntryType",
+                "description": "An enumeration."
+            },
+            "FeedbackCommentChannelEntry": {
+                "properties": {
+                    "Time": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Time",
+                        "description": "The (date and) time this feedback was recieved, plus or minus logging latency"
+                    },
+                    "QueryAnswerId": {
+                        "type": "string",
+                        "title": "Queryanswerid",
+                        "description": "The unique identifier of this query-answer (completion)."
+                    },
+                    "Comment": {
+                        "type": "string",
+                        "title": "Comment",
+                        "description": "A comment about this query-answer (completion). Meant for qualitative feedback, or yet-unsupported feedback types."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Time",
+                    "QueryAnswerId",
+                    "Comment"
+                ],
+                "title": "FeedbackCommentChannelEntry"
+            },
+            "FeedbackCorrectnessChannelEntry": {
+                "properties": {
+                    "Time": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Time",
+                        "description": "The (date and) time this feedback was recieved, plus or minus logging latency"
+                    },
+                    "QueryAnswerId": {
+                        "type": "string",
+                        "title": "Queryanswerid",
+                        "description": "The unique identifier of this query-answer (completion)."
+                    },
+                    "Correctness": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AnswerCorrectness"
+                            }
+                        ],
+                        "description": "The level of correctness of this query-answer (completion)'s answer. It can specifiy the cross product of whether the retrieved ground-truth context and/or question answering systems were correct."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Time",
+                    "QueryAnswerId",
+                    "Correctness"
+                ],
+                "title": "FeedbackCorrectnessChannelEntry"
+            },
+            "FeedbackItem": {
+                "properties": {
+                    "FeedbackType": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FeedbackType"
+                            }
+                        ],
+                        "description": "The type of feeedback, generally defining how to interpret the meaning."
+                    },
+                    "Feedback": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/AnswerCorrectnessFeedback"
+                            },
+                            {
+                                "$ref": "#/components/schemas/CommentFeedback"
+                            }
+                        ],
+                        "title": "Feedback",
+                        "description": "The contents of this feedback, something that you, or we, can use to understand how the system does well or poorly under different circumstances."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "FeedbackType",
+                    "Feedback"
+                ],
+                "title": "FeedbackItem"
+            },
+            "FeedbackRequest": {
+                "properties": {
+                    "TargetId": {
+                        "type": "string",
+                        "title": "Targetid",
+                        "description": "A target to aim the feedback on. Everything that we can recieve feedback for has a target Id which is unique within its type."
+                    },
+                    "TargetType": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FeedbackTargets"
+                            }
+                        ],
+                        "description": "The type of target of the feedback. It could be a query-answer (completion) or even something else like a conversation, if supported."
+                    },
+                    "Feedback": {
+                        "items": {
+                            "$ref": "#/components/schemas/FeedbackItem"
+                        },
+                        "type": "array",
+                        "title": "Feedback",
+                        "description": "The contents of this feedback. Multiple feedbacks (of different types) for a single target are supported."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "TargetId",
+                    "TargetType",
+                    "Feedback"
+                ],
+                "title": "FeedbackRequest"
+            },
+            "FeedbackTargets": {
+                "enum": [
+                    "QueryAnswer"
+                ],
+                "title": "FeedbackTargets",
+                "description": "An enumeration."
+            },
+            "FeedbackType": {
+                "enum": [
+                    "AnswerCorrectness",
+                    "Comment"
+                ],
+                "title": "FeedbackType",
+                "description": "An enumeration."
+            },
+            "FilterInfo": {
+                "properties": {
+                    "Name": {
+                        "type": "string",
+                        "title": "Name",
+                        "description": "The name of this filter: necessary to query for its use."
+                    },
+                    "Description": {
+                        "type": "string",
+                        "title": "Description",
+                        "description": "A description of what this filter does (namely entries it includes or excludes from a channel, based on their fields' values)."
+                    },
+                    "TargetTypes": {
+                        "items": {
+                            "$ref": "#/components/schemas/EntryType"
+                        },
+                        "type": "array",
+                        "description": "A list of types that this filter can filter on for channel entries."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Name",
+                    "Description",
+                    "TargetTypes"
+                ],
+                "title": "FilterInfo"
+            },
+            "FilterRequest": {
+                "properties": {
+                    "Name": {
+                        "type": "string",
+                        "title": "Name",
+                        "description": "The name of the filter to use."
+                    },
+                    "TargetField": {
+                        "type": "string",
+                        "title": "Targetfield",
+                        "description": "The field to target for the predicate of this filter (i.e. what to decide on, whether to keep or not this entry)."
+                    },
+                    "Args": {
+                        "items": {},
+                        "type": "array",
+                        "title": "Args",
+                        "description": "Any specific nameless arguments for this filter. Almost always, use the keyword arguments, kwargs, instead.",
+                        "default": []
+                    },
+                    "Kwargs": {
+                        "type": "object",
+                        "title": "Kwargs",
+                        "description": "Any specific named arguments for this filter.",
+                        "default": {}
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Name",
+                    "TargetField"
+                ],
+                "title": "FilterRequest"
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "Index": {
+                "properties": {
+                    "IndexId": {
+                        "type": "string",
+                        "title": "Indexid",
+                        "description": "Information about a specific index, corresponding to some corpus of text (data)."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "IndexId"
+                ],
+                "title": "Index"
+            },
+            "IndexJobChannelEntry": {
+                "properties": {
+                    "TimeStart": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Timestart",
+                        "description": "The time the corresponding index job started at in the server's set timezone (probably UTC)."
+                    },
+                    "TimeEnd": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Timeend",
+                        "description": "The time the corresponding index  job ended at in the server's set timezone (probably UTC)."
+                    },
+                    "TimeTakenSecs": {
+                        "type": "number",
+                        "title": "Timetakensecs",
+                        "description": "Time taken to complete the corresponding index job in seconds."
+                    },
+                    "IndexId": {
+                        "type": "string",
+                        "title": "Indexid",
+                        "description": "The unique id of the corresponding index job."
+                    },
+                    "MinFileSizeBytes": {
+                        "type": "integer",
+                        "title": "Minfilesizebytes",
+                        "description": "The smallest file size in the input corpus that was indexed in bytes."
+                    },
+                    "NumFiles": {
+                        "type": "integer",
+                        "title": "Numfiles",
+                        "description": "The number of files in the the input corpus to the index job."
+                    },
+                    "AverageFileSizeBytes": {
+                        "type": "number",
+                        "title": "Averagefilesizebytes",
+                        "description": "The average size of the files in the input corpus in bytes."
+                    },
+                    "MaxFileSizeBytes": {
+                        "type": "integer",
+                        "title": "Maxfilesizebytes",
+                        "description": "The largest file size in the input corpus that was indexed in bytes."
+                    },
+                    "HasPDF": {
+                        "type": "boolean",
+                        "title": "Haspdf",
+                        "description": "Whether a .pdf file was found to index."
+                    },
+                    "HasTXT": {
+                        "type": "boolean",
+                        "title": "Hastxt",
+                        "description": "Whether a .txt file was foudn to index."
+                    },
+                    "HasJSON": {
+                        "type": "boolean",
+                        "title": "Hasjson",
+                        "description": "Whether a .json file was foudn to index."
+                    },
+                    "Result": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/IndexStatus"
+                            }
+                        ],
+                        "description": "The result of the index job, which could be a failure for one of many reasons or a success. Jobs that are still processing are not logged."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "TimeStart",
+                    "TimeEnd",
+                    "TimeTakenSecs",
+                    "IndexId",
+                    "MinFileSizeBytes",
+                    "NumFiles",
+                    "AverageFileSizeBytes",
+                    "MaxFileSizeBytes",
+                    "HasPDF",
+                    "HasTXT",
+                    "HasJSON",
+                    "Result"
+                ],
+                "title": "IndexJobChannelEntry"
+            },
+            "IndexStatus": {
+                "enum": [
+                    "NotStarted",
+                    "Processing",
+                    "Success",
+                    "Failed_NotZip",
+                    "Failed_BadExt",
+                    "Failed_Unknown",
+                    "Failed_Processing"
+                ],
+                "title": "IndexStatus",
+                "description": "An enumeration."
+            },
+            "IndexStatusRequest": {
+                "properties": {
+                    "IndexId": {
+                        "type": "string",
+                        "title": "Indexid",
+                        "description": "The Id of the index that you wish to know the status (i.e. pre-processing, done successfully, or failed) of."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "IndexId"
+                ],
+                "title": "IndexStatusRequest"
+            },
+            "IndexStatusResponse": {
+                "properties": {
+                    "Status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/IndexStatus"
+                            }
+                        ],
+                        "description": "The status, which can span from some form of pre-processing to a final state that can be a failure or success. One of: NotStarted, Processing, Success, Failed_NotZip, Failed_BadExt, Failed_Unknown, Failed_Processing."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Status"
+                ],
+                "title": "IndexStatusResponse"
+            },
+            "ListIndices": {
+                "properties": {
+                    "Indices": {
+                        "items": {
+                            "$ref": "#/components/schemas/Index"
+                        },
+                        "type": "array",
+                        "title": "Indices",
+                        "description": "A list of usable (i.e. pre-processed succesfully) indices."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Indices"
+                ],
+                "title": "ListIndices"
+            },
+            "MakeIndexResponse": {
+                "properties": {
+                    "IndexId": {
+                        "type": "string",
+                        "title": "Indexid",
+                        "description": "The Id of the index that you just begun the creation of. Use it for getting index (pre-processing) status and asking a query of the corresponding corpus of text."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "IndexId"
+                ],
+                "title": "MakeIndexResponse"
+            },
+            "PotentialAttribute": {
+                "properties": {
+                    "Likelihood": {
+                        "type": "number",
+                        "title": "Likelihood",
+                        "description": "Usually a probability or measure of intensity for the presence of this attribute."
+                    },
+                    "Description": {
+                        "type": "string",
+                        "title": "Description",
+                        "description": "An actionable description, explaining the meaning of the so-called likelihood as well as this attribute."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Likelihood",
+                    "Description"
+                ],
+                "title": "PotentialAttribute"
+            },
+            "QueryAnswerChannelEntry": {
+                "properties": {
+                    "TimeStart": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Timestart",
+                        "description": "The time the corresponding index job started at in the server's set timezone (probably UTC)."
+                    },
+                    "TimeEnd": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Timeend",
+                        "description": "The time the corresponding index  job ended at in the server's set timezone (probably UTC)."
+                    },
+                    "TimeTakenSecs": {
+                        "type": "number",
+                        "title": "Timetakensecs",
+                        "description": "Time taken to complete the corresponding index job in seconds."
+                    },
+                    "IndexId": {
+                        "type": "string",
+                        "title": "Indexid",
+                        "description": "The unique id of the corresponding index job."
+                    },
+                    "QueryAnswerId": {
+                        "type": "string",
+                        "title": "Queryanswerid",
+                        "description": "The query-answer (completion) Id that identifies the query-answer given feedback."
+                    },
+                    "Query": {
+                        "type": "string",
+                        "title": "Query",
+                        "description": "The query from this query-answer."
+                    },
+                    "Context": {
+                        "type": "string",
+                        "title": "Context",
+                        "description": "The context (truncated) from this query-answer."
+                    },
+                    "Answer": {
+                        "type": "string",
+                        "title": "Answer",
+                        "description": "The answer the RAG system provided to the user's query in this query-answer."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "TimeStart",
+                    "TimeEnd",
+                    "TimeTakenSecs",
+                    "IndexId",
+                    "QueryAnswerId",
+                    "Query",
+                    "Context",
+                    "Answer"
+                ],
+                "title": "QueryAnswerChannelEntry"
+            },
+            "QueryRequest": {
+                "properties": {
+                    "Query": {
+                        "type": "string",
+                        "title": "Query",
+                        "description": "A question that you wish to have an answer for."
+                    },
+                    "IndexId": {
+                        "type": "string",
+                        "title": "Indexid",
+                        "description": "The Id of the index/corpus of text that you wish to ask about. If None, then it will be the default index, which you can learn from by checking the config endpoint."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Query"
+                ],
+                "title": "QueryRequest"
+            },
+            "QueryResponse": {
+                "properties": {
+                    "Answer": {
+                        "type": "string",
+                        "title": "Answer",
+                        "description": "The answer to the question on the corpus/index."
+                    },
+                    "Citation": {
+                        "type": "string",
+                        "title": "Citation",
+                        "description": "A blurb of text that explains where to find the ground-truth source of evidence for the answer provided."
+                    },
+                    "QueryAnswerId": {
+                        "type": "string",
+                        "title": "Queryanswerid",
+                        "description": "A query-answer (completion) Id that you can use to provide feedback in an asynchronous fashion."
+                    },
+                    "Attributes": {
+                        "items": {
+                            "$ref": "#/components/schemas/QueryResponseAttribute"
+                        },
+                        "type": "array",
+                        "title": "Attributes",
+                        "description": "A list of important attributes detected about this question and answer. They can include things like whether the answer is likely correct.",
+                        "default": []
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Answer",
+                    "QueryAnswerId"
+                ],
+                "title": "QueryResponse"
+            },
+            "QueryResponseAttribute": {
+                "properties": {
+                    "AttributeType": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AttributeType"
+                            }
+                        ],
+                        "description": "The type of attribute about the answer this represents."
+                    },
+                    "Attribute": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PotentialAttribute"
+                            }
+                        ],
+                        "title": "Attribute",
+                        "description": "Information about that attribute."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "AttributeType",
+                    "Attribute"
+                ],
+                "title": "QueryResponseAttribute"
+            },
+            "ReducerInfo": {
+                "properties": {
+                    "Name": {
+                        "type": "string",
+                        "title": "Name",
+                        "description": "The name of this reducer: necessary to query for its use."
+                    },
+                    "Description": {
+                        "type": "string",
+                        "title": "Description",
+                        "description": "A description of what this reducer does (namely how it combines, or reduces, all the values from a certain field across all entries in the given channel)."
+                    },
+                    "TargetTypes": {
+                        "items": {
+                            "$ref": "#/components/schemas/EntryType"
+                        },
+                        "type": "array",
+                        "description": "A list of the types that can be operated on using this reducer.",
+                        "default": []
+                    },
+                    "ValueTypes": {
+                        "items": {
+                            "$ref": "#/components/schemas/ReductionValueType"
+                        },
+                        "type": "array",
+                        "description": "The type of the output of the reducer. The output of a reducer is a combination of the values it targetted, usually yielding a value of the same type or a collection of that type.",
+                        "default": []
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Name",
+                    "Description"
+                ],
+                "title": "ReducerInfo"
+            },
+            "ReducerRequest": {
+                "properties": {
+                    "Name": {
+                        "type": "string",
+                        "title": "Name",
+                        "description": "The name of the reducer to use."
+                    },
+                    "TargetField": {
+                        "type": "string",
+                        "title": "Targetfield",
+                        "description": "The name of the field (in the entries of the channel) on which to reduce."
+                    },
+                    "Args": {
+                        "items": {},
+                        "type": "array",
+                        "title": "Args",
+                        "description": "Any specific nameless arguments for this reducer. Almost always, use the keyword arguments, kwargs, instead.",
+                        "default": []
+                    },
+                    "Kwargs": {
+                        "type": "object",
+                        "title": "Kwargs",
+                        "description": "Any specific named arguments for this reducer.",
+                        "default": {}
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Name",
+                    "TargetField"
+                ],
+                "title": "ReducerRequest"
+            },
+            "ReductionRequest": {
+                "properties": {
+                    "Name": {
+                        "type": "string",
+                        "title": "Name",
+                        "description": "A user-provided name to identify this reduction uniquely."
+                    },
+                    "Filters": {
+                        "items": {
+                            "$ref": "#/components/schemas/FilterRequest"
+                        },
+                        "type": "array",
+                        "title": "Filters",
+                        "description": "A list of filters to decide what entries (from the channel) to provide the reducer.",
+                        "default": []
+                    },
+                    "Reducer": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReducerRequest"
+                            }
+                        ],
+                        "title": "Reducer",
+                        "description": "Information about what reducer to use on what field on those entries."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Name",
+                    "Reducer"
+                ],
+                "title": "ReductionRequest"
+            },
+            "ReductionResponse": {
+                "properties": {
+                    "Name": {
+                        "type": "string",
+                        "title": "Name",
+                        "description": "The name the user provided in their reduction request to identify this reduction."
+                    },
+                    "Value": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "items": {
+                                    "type": "integer"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "items": {
+                                    "type": "number"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "items": {
+                                    "type": "boolean"
+                                },
+                                "type": "array"
+                            }
+                        ],
+                        "title": "Value",
+                        "description": "The value of the reduction, or potentially null if the reduction was not possible. This could still be null if the request was valid and there were no errors (i.e. average of an empty channel). Behavior in edge cases is usually defined by the reducer description."
+                    },
+                    "State": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AnalyticsState"
+                            }
+                        ],
+                        "description": "A state to understand whether the reduction worked and if not why."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "Name",
+                    "State"
+                ],
+                "title": "ReductionResponse"
+            },
+            "ReductionValueType": {
+                "enum": [
+                    "Datetime",
+                    "Int",
+                    "Float",
+                    "Bool",
+                    "String",
+                    "Enum",
+                    "List[Datetime]",
+                    "List[Int]",
+                    "List[Float]",
+                    "List[Bool]",
+                    "List[String]",
+                    "List[Enum]"
+                ],
+                "title": "ReductionValueType",
+                "description": "An enumeration."
+            },
+            "TimeseriesRequest": {
+                "properties": {
+                    "Filters": {
+                        "items": {
+                            "$ref": "#/components/schemas/FilterRequest"
+                        },
+                        "type": "array",
+                        "title": "Filters",
+                        "description": "A list of filters to apply to include or exclude entries from the channel.",
+                        "default": []
+                    }
+                },
+                "type": "object",
+                "title": "TimeseriesRequest"
+            },
+            "TimeseriesResponse": {
+                "properties": {
+                    "Timeseries": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "$ref": "#/components/schemas/IndexJobChannelEntry"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/QueryAnswerChannelEntry"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/FeedbackCommentChannelEntry"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/FeedbackCorrectnessChannelEntry"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Timeseries",
+                        "description": "A list (timeseries) of entries (from a requested channel) that conformed to the predicates of the filters requested. None only if there was a failure in fetching this timeseries."
+                    },
+                    "State": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AnalyticsState"
+                            }
+                        ],
+                        "description": "A state to understand whether the filtered fetch worked and if not why."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "State"
+                ],
+                "title": "TimeseriesResponse"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            }
+        }
+    }
+}
